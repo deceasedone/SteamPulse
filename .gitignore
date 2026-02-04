@@ -1,0 +1,28 @@
+# --- Security (Keys) ---
+*.json
+!package.json
+!tsconfig.json
+!.eslintrc.json
+!dbt_project.yml
+!profiles.yml
+# --- Logs & Temp Files (FIX FOR YOUR ERROR) ---
+logs/
+*.log
+tmp/
+__pycache__/
+venv/
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+frontend/.next/
+frontend/node_modules/
+
+# --- Local Data ---
+data/
+raw_layer/
+repaired/
+ingest_state.json
+discovered_ids.json
+
+.env
