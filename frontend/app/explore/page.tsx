@@ -29,7 +29,7 @@ export default function GameExplorer() {
 
   // Fetch genres for filter
   useEffect(() => {
-    fetch('/api/genres')
+    fetch('/api/genre')
       .then(res => res.json())
       .then(data => setGenres(data.map((g: any) => g.genre)));
   }, []);
