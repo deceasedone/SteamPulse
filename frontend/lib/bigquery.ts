@@ -1,10 +1,31 @@
 import { BigQuery } from '@google-cloud/bigquery';
 import path from 'path';
 
-const bigquery = new BigQuery({
-  projectId: 'steampulse-data-eng',
-  keyFilename: process.env.GCP_CREDENTIALS || path.join(process.cwd(), 'gcp_keys.json'), // Fixed path!
-});
+const getOptions = () => {
+  if (process.env.GCP_CREDENTIALS) {
+    try {
+      const credentials = JSON.parse(process.env.GCP_CREDENTIALS);
+      
+      if (credentials.private_key) {
+        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+      }
+
+      return {
+        projectId: 'steampulse-data-eng',
+        credentials,
+      };
+    } catch (error) {
+      console.error('Failed to parse GCP_CREDENTIALS env var:', error);
+    }
+  }
+
+  return {
+    projectId: 'steampulse-data-eng',
+    keyFilename: path.join(process.cwd(), 'gcp_keys.json'),
+  };
+};
+
+const bigquery = new BigQuery(getOptions());
 
 export async function runQuery<T = any>(
   query: string, 
@@ -19,13 +40,11 @@ export async function runQuery<T = any>(
     return rows as T[];
   } catch (error) {
     console.error('BigQuery Error:', error);
-    throw new Error(`BigQuery query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return [] as unknown as T[]; 
   }
 }
 
-// Type-safe query builder helpers
 export const queries = {
-  // Get all unique genres for filters
   getGenres: () => `
     SELECT DISTINCT primary_genre as genre
     FROM \`steampulse-data-eng.dbt_gsinha.stg_games\`
@@ -33,7 +52,6 @@ export const queries = {
     ORDER BY primary_genre
   `,
   
-  // Get all unique publishers for filters
   getPublishers: () => `
     SELECT DISTINCT publisher
     FROM \`steampulse-data-eng.dbt_gsinha.stg_games\`
