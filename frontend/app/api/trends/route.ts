@@ -1,14 +1,8 @@
-import { BigQuery } from '@google-cloud/bigquery';
+import { runQuery } from '@/lib/bigquery';
 import { NextResponse } from 'next/server';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
-
-const bigquery = new BigQuery({
-  projectId: 'steampulse-data-eng',
-  // process.cwd() is the root of your Next.js project (the 'frontend' folder)
-  keyFilename: process.env.GCP_CREDENTIALS || path.join(process.cwd(), 'gcp_keys.json'), 
-});
+export const revalidate = 3600; // Cache for 1 hour
 
 export async function GET() {
   try {
@@ -18,11 +12,11 @@ export async function GET() {
       LIMIT 20
     `;
 
-    const [rows] = await bigquery.query(query);
+    const rows = await runQuery(query);
+    
     return NextResponse.json(rows);
   } catch (error) {
-    console.error('BigQuery API Error:', error);
-    // Return empty array on error so the chart doesn't crash!
-    return NextResponse.json([], { status: 500 }); 
+    console.error('Trends API Error:', error);
+    return NextResponse.json([], { status: 500 });
   }
 }
