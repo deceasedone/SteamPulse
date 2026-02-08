@@ -3,7 +3,7 @@ import path from 'path';
 
 const bigquery = new BigQuery({
   projectId: 'steampulse-data-eng',
-  keyFilename: path.join(process.cwd(), 'gcp_keys.json'), // Fixed path!
+  keyFilename: process.env.GCP_CREDENTIALS || path.join(process.cwd(), 'gcp_keys.json'), // Fixed path!
 });
 
 export async function runQuery<T = any>(

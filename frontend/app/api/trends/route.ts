@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 const bigquery = new BigQuery({
   projectId: 'steampulse-data-eng',
   // process.cwd() is the root of your Next.js project (the 'frontend' folder)
-  keyFilename: path.join(process.cwd(), 'gcp_keys.json'), 
+  keyFilename: process.env.GCP_CREDENTIALS || path.join(process.cwd(), 'gcp_keys.json'), 
 });
 
 export async function GET() {
