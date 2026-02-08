@@ -42,7 +42,18 @@ graph LR
 5. **Visualization (Next.js):** A server-side rendered dashboard visualizes trends using Recharts and TanStack Table.
 
 ---
+## ☁️ Cloud Infrastructure (Prerequisites)
+This project is deployed on Google Cloud Platform (GCP) using a serverless approach. To replicate the environment, the following resources are required:
 
+IAM & Security: A Service Account with BigQuery Admin and Storage Object Admin roles.
+
+Data Lake: A Cloud Storage Bucket (e.g., steam-raw-data) to store the raw JSON ingestion batches.
+
+Data Warehouse: An empty BigQuery Dataset (e.g., steam_analytics). The tables are auto-generated and managed by dbt.
+
+Compute: Cloud Run Jobs or a local Airflow instance for executing the Python ingestion script.
+---
+---
 ## 🧠 Data Modeling & Transformation (dbt)
 
 The core business logic and data quality tests are handled by **dbt (data build tool)**. You can explore the full SQL logic and lineage in the dedicated repository.
