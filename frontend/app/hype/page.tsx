@@ -154,7 +154,7 @@ export default function HypeTracker() {
               <Tooltip 
                 contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
                 cursor={{fill: '#ffffff', opacity: 0.1}}
-                formatter={(value: any, name: string | undefined) => {
+                formatter={(value: any, name: string | number | undefined) => {
                    if(name === 'hype_score') return [Math.round(value), 'Reviews/Day'];
                    return [value, name];
                 }}
