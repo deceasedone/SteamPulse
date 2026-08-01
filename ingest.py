@@ -28,7 +28,8 @@ def upload_batch_to_gcs(batch_data, batch_index):
         filename = f"raw_layer/{date_str}/batch_{batch_index}.json"
         
         blob = bucket.blob(filename)
-        blob.upload_from_string(json.dumps(batch_data), content_type='application/json')
+        ndjson_data = "\n".join(json.dumps(record) for record in batch_data)
+        blob.upload_from_string(ndjson_data, content_type='application/json')
         print(f"☁️  Synced batch {batch_index} to Cloud.")
     except Exception as e:
         print(f"⚠️  Cloud Upload Failed: {e}")
@@ -41,56 +42,88 @@ def save_batch_locally(batch_data, batch_index):
         json.dump(batch_data, f)
     print(f"💾 Saved batch {batch_index} locally.")
 
+NEW_RELEASE_SCAN_PAGES = 5  # pages to check per sort mode, every run
+
+def discover_new_releases(existing_ids, headers):
+    """Scans newest AND most-reviewed pages — catches new releases plus older popular titles the original crawl missed."""
+    found_new = []
+    for sort_by in ["Released_DESC", "Reviews_DESC"]:
+        page = 1
+        while page <= NEW_RELEASE_SCAN_PAGES:
+            url = f"https://store.steampowered.com/search/?sort_by={sort_by}&category1=998&page={page}"
+            try:
+                resp = requests.get(url, headers=headers, timeout=10)
+                if resp.status_code != 200:
+                    time.sleep(2)
+                    continue
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                rows = soup.find_all(attrs={"data-ds-appid": True})
+                if not rows:
+                    break
+                for row in rows:
+                    for app_id in row['data-ds-appid'].split(','):
+                        aid = int(app_id)
+                        if aid not in existing_ids and aid not in found_new:
+                            found_new.append(aid)
+                page += 1
+                time.sleep(1)
+            except Exception as e:
+                print(f"❌ Error scanning {sort_by} page {page}: {e}")
+                time.sleep(5)
+    return found_new
+
+
 def get_relevant_game_ids(target_count):
-    # Check if we already have the IDs from a previous run
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+
+    existing_ids = []
     if os.path.exists(DISCOVERY_FILE):
         print(f"📂 Found existing game list ({DISCOVERY_FILE}). Loading...")
         with open(DISCOVERY_FILE, 'r') as f:
-            ids = json.load(f)
-        if len(ids) >= target_count:
-            print(f"✅ Loaded {len(ids)} IDs. Skipping discovery.")
-            return ids[:target_count]
+            existing_ids = json.load(f)
+        print(f"✅ Loaded {len(existing_ids)} known IDs.")
 
-    unique_ids = []
-    page = 1
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+    # ALWAYS check for new releases, even after target_count was hit previously
+    print(f"🕵️‍♂️ Scanning for new releases (last {NEW_RELEASE_SCAN_PAGES} pages)...")
+    new_ids = discover_new_releases(existing_ids, headers)
+    if new_ids:
+        print(f"🆕 Found {len(new_ids)} new game(s): {new_ids}")
+        existing_ids.extend(new_ids)
+    else:
+        print("   No new releases found since last run.")
 
-    print(f"🕵️‍♂️ Starting Discovery for {target_count} games...")
+    # First-ever run: still need full discovery to reach target_count
+    if len(existing_ids) < target_count:
+        print(f"🕵️‍♂️ Below target ({len(existing_ids)}/{target_count}). Running full discovery...")
+        page = 1
+        while len(existing_ids) < target_count:
+            url = f"https://store.steampowered.com/search/?sort_by=Reviews_DESC&category1=998&page={page}"
+            try:
+                resp = requests.get(url, headers=headers, timeout=10)
+                if resp.status_code != 200:
+                    time.sleep(2)
+                    continue
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                rows = soup.find_all(attrs={"data-ds-appid": True})
+                if not rows:
+                    break
+                for row in rows:
+                    for app_id in row['data-ds-appid'].split(','):
+                        aid = int(app_id)
+                        if aid not in existing_ids:
+                            existing_ids.append(aid)
+                print(f"   Page {page}: Total {len(existing_ids)}")
+                page += 1
+                time.sleep(1)
+            except Exception as e:
+                print(f"❌ Error on page {page}: {e}")
+                time.sleep(5)
 
-    while len(unique_ids) < target_count:
-        url = f"https://store.steampowered.com/search/?sort_by=Reviews_DESC&category1=998&page={page}"
-        try:
-            resp = requests.get(url, headers=headers, timeout=10)
-            if resp.status_code != 200:
-                time.sleep(2)
-                continue
-            
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            rows = soup.find_all(attrs={"data-ds-appid": True})
-            
-            if not rows: break
-
-            for row in rows:
-                app_ids = row['data-ds-appid'].split(',')
-                for app_id in app_ids:
-                    aid = int(app_id)
-                    if aid not in unique_ids:
-                        unique_ids.append(aid)
-            
-            print(f"   Page {page}: Total found {len(unique_ids)}")
-            page += 1
-            time.sleep(1) # Be polite
-
-        except Exception as e:
-            print(f"❌ Error on page {page}: {e}")
-            time.sleep(5)
-
-    # SAVE THE LIST IMMEDIATELY
     with open(DISCOVERY_FILE, 'w') as f:
-        json.dump(unique_ids, f)
-    print(f"📝 Saved {len(unique_ids)} IDs to {DISCOVERY_FILE}")
-    
-    return unique_ids[:target_count]
+        json.dump(existing_ids, f)
+    print(f"📝 Saved {len(existing_ids)} total IDs to {DISCOVERY_FILE}")
+
+    return existing_ids
 
 def fetch_details_and_store(all_ids):
     start_index = 0

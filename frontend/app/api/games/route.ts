@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       params.genre = genre;
     }
     if (maxPrice < 10000) {
-      conditions.push('price <= @maxPrice');
+      conditions.push('(is_free = true OR COALESCE(price, 0) <= @maxPrice)');
       params.maxPrice = maxPrice;
     }
     if (minRating > 0) {

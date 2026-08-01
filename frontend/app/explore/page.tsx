@@ -148,7 +148,7 @@ export default function GameExplorer() {
   return (
     <div className="min-h-screen bg-[#0b1016] text-white p-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-[#66c0f4] to-[#a3cf06] bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold mb-2 bg-linear-to-r from-[#66c0f4] to-[#a3cf06] bg-clip-text text-transparent">
           Game Explorer
         </h1>
         <p className="text-slate-400">Browse and filter our complete game database</p>
@@ -286,21 +286,52 @@ export default function GameExplorer() {
                   ))}
                 </thead>
                 <tbody className="divide-y divide-slate-700">
-                  {table.getRowModel().rows.map(row => (
-                    <tr 
-                      key={row.id} 
-                      className="hover:bg-[#0b1016] transition-colors"
-                    >
-                      {row.getVisibleCells().map(cell => (
-                        <td key={cell.id} className="px-6 py-4">
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </td>
-                      ))}
+                  {table.getRowModel().rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={columns.length} className="px-6 py-16 text-center">
+                        <p className="text-slate-300 font-medium mb-2">
+                          No games found matching "{search || 'your filters'}"
+                        </p>
+                        <p className="text-slate-500 text-sm max-w-md mx-auto">
+                          Steam Pulse tracks a curated snapshot of ~10,000 popular titles, not the full Steam catalog.
+                          For anything else, try{' '}
+                          <a
+                            href={`https://store.steampowered.com/search/?term=${encodeURIComponent(search)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#66c0f4] hover:underline"
+                          >
+                            Steam Store
+                          </a>{' '}
+                          or{' '}
+                          <a
+                            href={`https://steamdb.info/search/?a=app&q=${encodeURIComponent(search)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#66c0f4] hover:underline"
+                          >
+                            SteamDB
+                          </a>.
+                        </p>
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    table.getRowModel().rows.map(row => (
+                      <tr 
+                        key={row.id} 
+                        className="hover:bg-[#0b1016] transition-colors"
+                      >
+                        {row.getVisibleCells().map(cell => (
+                          <td key={cell.id} className="px-6 py-4">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
