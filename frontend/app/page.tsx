@@ -63,13 +63,21 @@ export default function Dashboard() {
     <main className="min-h-screen bg-[#0b1016] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-[#66c0f4] to-[#a3cf06] bg-clip-text text-transparent">
-            Dashboard Overview
-          </h1>
-          <p className="text-slate-400">
-            Comprehensive analytics for 10,000+ Steam games
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-[#66c0f4] to-[#a3cf06] bg-clip-text text-transparent">
+              Dashboard Overview
+            </h1>
+            <p className="text-slate-400">
+              Comprehensive analytics for 10,000+ Steam games
+            </p>
+          </div>
+          {data && (
+            <span className="flex items-center gap-2 text-xs text-slate-500 bg-[#1b2838] border border-slate-700 rounded-full px-3 py-1.5 w-fit">
+              <span className="w-2 h-2 rounded-full bg-[#a3cf06] animate-pulse" />
+              Updated {new Date(data.lastUpdated).toLocaleString()}
+            </span>
+          )}
         </div>
 
         {/* KPI Cards Grid */}
@@ -197,13 +205,13 @@ export default function Dashboard() {
         {/* Release Trend Line Chart - Full Width */}
         <ChartContainer
           title="Games Released Over Time"
-          subtitle="Annual release trends since 2010"
+          subtitle="Annual release trends since 2010 · dual-axis: releases (left) vs rating (right)"
           isLoading={loading}
           error={error}
           height="h-[500px]"
         >
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data?.yearlyTrend || []}>
+            <LineChart data={data?.yearlyTrend || []} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
               <XAxis 
                 dataKey="year" 
@@ -211,8 +219,18 @@ export default function Dashboard() {
                 style={{ fontSize: '12px' }}
               />
               <YAxis 
-                stroke="#fff"
+                yAxisId="left"
+                stroke="#66c0f4"
                 style={{ fontSize: '12px' }}
+                label={{ value: 'Games Released', angle: -90, position: 'insideLeft', fill: '#66c0f4', fontSize: 12 }}
+              />
+              <YAxis 
+                yAxisId="right"
+                orientation="right"
+                stroke="#a3cf06"
+                domain={[0, 100]}
+                style={{ fontSize: '12px' }}
+                label={{ value: 'Avg Metacritic', angle: 90, position: 'insideRight', fill: '#a3cf06', fontSize: 12 }}
               />
               <Tooltip 
                 contentStyle={{ 
@@ -220,6 +238,7 @@ export default function Dashboard() {
                   borderColor: '#334155',
                   borderRadius: '8px'
                 }} 
+                labelStyle={{ color: '#fff', fontWeight: 600 }}
               />
               <Legend 
                 wrapperStyle={{ 
@@ -228,6 +247,7 @@ export default function Dashboard() {
                 }}
               />
               <Line 
+                yAxisId="left"
                 type="monotone" 
                 dataKey="game_count" 
                 stroke="#66c0f4" 
@@ -237,6 +257,7 @@ export default function Dashboard() {
                 activeDot={{ r: 6 }}
               />
               <Line 
+                yAxisId="right"
                 type="monotone" 
                 dataKey="avg_rating" 
                 stroke="#a3cf06" 
@@ -247,13 +268,6 @@ export default function Dashboard() {
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
-
-        {/* Footer with last updated */}
-        {data && (
-          <div className="mt-8 text-center text-slate-500 text-sm">
-            Last updated: {new Date(data.lastUpdated).toLocaleString()}
-          </div>
-        )}
       </div>
     </main>
   );

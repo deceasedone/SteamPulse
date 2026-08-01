@@ -90,7 +90,7 @@ export default function GameExplorer() {
               </span>
             ) : (
               <span className="text-white font-medium">
-                ₹{row.original.price.toLocaleString()}
+                {row.original.price ? `₹${row.original.price.toLocaleString()}` : 'N/A'}
               </span>
             )}
           </div>
@@ -112,7 +112,7 @@ export default function GameExplorer() {
         header: 'Reviews',
         cell: ({ row }) => (
           <span className="text-slate-300">
-            {row.original.total_reviews.toLocaleString()}
+            {(row.original.total_reviews ?? 0).toLocaleString()}
           </span>
         ),
       },
