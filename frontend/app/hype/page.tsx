@@ -7,10 +7,15 @@ export const revalidate = 3600;
 
 const WINDOW_OPTIONS = [30, 90, 180, 365, 1095];
 
-// Open on the narrowest window that still contains data.
+// A year shows all three age cohorts. Widen further only if the lake is stale
+// enough that a year would come back empty.
+const PREFERRED_WINDOW = 365;
+
 function defaultWindow(stalenessDays: number | null): number {
-  if (stalenessDays === null) return 180;
-  return WINDOW_OPTIONS.find((w) => w > stalenessDays) ?? 1095;
+  if (stalenessDays === null) return PREFERRED_WINDOW;
+  return (
+    WINDOW_OPTIONS.find((w) => w >= PREFERRED_WINDOW && w > stalenessDays) ?? 1095
+  );
 }
 
 export const metadata = {

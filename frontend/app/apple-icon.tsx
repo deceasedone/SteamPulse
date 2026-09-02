@@ -1,10 +1,11 @@
 import { ImageResponse } from 'next/og';
 
-export const size = { width: 32, height: 32 };
+export const size = { width: 180, height: 180 };
 export const contentType = 'image/png';
 
-// Matches the navbar mark: solid blue tile, dark pulse line.
-export default function Icon() {
+// iOS renders this on the home screen; it has no rounded-corner mask of its
+// own, so the tile is drawn edge to edge.
+export default function AppleIcon() {
   return new ImageResponse(
     (
       <div
@@ -15,16 +16,15 @@ export default function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           background: '#66c0f4',
-          borderRadius: 7,
         }}
       >
         <svg
-          width="26"
-          height="26"
+          width="132"
+          height="132"
           viewBox="0 0 24 24"
           fill="none"
           stroke="#070b10"
-          strokeWidth="3"
+          strokeWidth="2.75"
           strokeLinecap="round"
           strokeLinejoin="round"
         >

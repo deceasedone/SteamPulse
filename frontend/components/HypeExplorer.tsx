@@ -87,6 +87,9 @@ export function HypeExplorer({ initialGames, initialWindow }: Props) {
   );
   const established = games.filter((g) => g.days_since_release > 180);
 
+  // `minAge` is the youngest a game can be and still land in this cohort. A
+  // cohort whose floor is outside the selected window can never hold anything,
+  // so it is dropped rather than rendered permanently empty.
   const columns = [
     {
       key: 'fresh',
@@ -95,6 +98,7 @@ export function HypeExplorer({ initialGames, initialWindow }: Props) {
       Icon: Sparkles,
       accent: 'text-lime',
       rows: fresh,
+      minAge: 0,
     },
     {
       key: 'recent',
@@ -103,6 +107,7 @@ export function HypeExplorer({ initialGames, initialWindow }: Props) {
       Icon: TrendingUp,
       accent: 'text-pulse',
       rows: recent,
+      minAge: 30,
     },
     {
       key: 'established',
@@ -111,8 +116,9 @@ export function HypeExplorer({ initialGames, initialWindow }: Props) {
       Icon: Flame,
       accent: 'text-warn',
       rows: established,
+      minAge: 180,
     },
-  ];
+  ].filter((c) => days > c.minAge);
 
   const chartData = games.slice(0, 12);
 
@@ -217,7 +223,15 @@ export function HypeExplorer({ initialGames, initialWindow }: Props) {
         </ChartContainer>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div
+        className={`grid grid-cols-1 gap-6 ${
+          columns.length === 3
+            ? 'lg:grid-cols-3'
+            : columns.length === 2
+              ? 'lg:grid-cols-2'
+              : ''
+        }`}
+      >
         {columns.map(({ key, title, blurb, Icon, accent, rows }) => (
           <section key={key} className="panel p-5">
             <div className="mb-1 flex items-center gap-2.5">
