@@ -1,0 +1,32 @@
+# Keep the build context small - data/ alone is ~150MB and was previously
+# shipped to the Docker daemon on every build.
+data/
+raw_layer/
+repaired/
+logs/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+frontend/
+dags/
+tests/
+.git/
+.github/
+
+steam_app_list.json
+discovered_ids.json
+ingest_state.json
+steam_data.json
+full_log.*
+
+.env
+*.env
+gcp_keys.json
+*-key.json
+*credentials*.json
+
+README.md
+LICENSE
+docker-compose.yaml

@@ -1,77 +1,79 @@
-import requests
+"""Fetch the full Steam app list via IStoreService.
+
+Optional helper: ingest.py discovers ids by scraping the storefront search
+pages, which needs no API key. This script is the authenticated alternative and
+requires STEAM_API_KEY in .env.
+"""
 import json
-import os
-from dotenv import load_dotenv
+import logging
+import sys
 
-# Load variables from .env file
-load_dotenv()
+import requests
 
-API_KEY = os.getenv("STEAM_API_KEY")
+import config
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
+log = logging.getLogger("fetch_list")
+
+APP_LIST_URL = "https://api.steampowered.com/IStoreService/GetAppList/v1/"
+PAGE_SIZE = 50000
+
 
 def fetch_full_app_list():
-    if not API_KEY:
-        print("❌ Error: STEAM_API_KEY not found in .env file.")
+    if not config.STEAM_API_KEY:
+        log.error("STEAM_API_KEY not set (add it to .env)")
         return None
 
-    url = "https://api.steampowered.com/IStoreService/GetAppList/v1/"
     all_apps = []
     last_appid = 0
-    more_items = True
 
-    print(f"🚀 Starting fetch via IStoreService (Key ending in ...{API_KEY[-4:]})...")
-
-    while more_items:
+    log.info("Fetching app list via IStoreService...")
+    while True:
         params = {
-            "key": API_KEY,
+            "key": config.STEAM_API_KEY,
             "include_games": "true",
             "include_dlc": "false",
             "include_software": "false",
-            "max_results": 50000,
-            "last_appid": last_appid
+            "max_results": PAGE_SIZE,
+            "last_appid": last_appid,
         }
-
         try:
-            resp = requests.get(url, params=params, timeout=30)
-            
-            if resp.status_code == 403:
-                print("❌ 403 Forbidden: API Key is invalid or has no permissions.")
-                return None
-            if resp.status_code != 200:
-                print(f"❌ Error {resp.status_code}: {resp.text}")
-                return None
+            resp = requests.get(APP_LIST_URL, params=params, timeout=30)
+        except requests.RequestException as exc:
+            log.error("Request failed: %s", exc)
+            return None
 
-            data = resp.json()
-            apps_batch = data.get("response", {}).get("apps", [])
+        if resp.status_code == 403:
+            log.error("403 Forbidden: the API key is invalid or lacks permission")
+            return None
+        if resp.status_code != 200:
+            # Never echo the response body - the request URL carries the key.
+            log.error("Unexpected HTTP %s from IStoreService", resp.status_code)
+            return None
 
-            if not apps_batch:
-                more_items = False
-            else:
-                all_apps.extend(apps_batch)
-                last_appid = apps_batch[-1]["appid"]
-                print(f"   Fetched {len(apps_batch)} apps... (Total: {len(all_apps)})")
-                
-                # If we got fewer than 50k, we reached the end
-                if len(apps_batch) < 50000:
-                    more_items = False
-                    
-        except Exception as e:
-            print(f"🔥 Request failed: {e}")
+        batch = resp.json().get("response", {}).get("apps", [])
+        if not batch:
             break
 
-    # Reformat to match the structure expected by ingest.py
-    structured_data = {
+        all_apps.extend(batch)
+        last_appid = batch[-1]["appid"]
+        log.info("Fetched %s apps (total %s)", len(batch), len(all_apps))
+        if len(batch) < PAGE_SIZE:
+            break
+
+    return {
         "applist": {
             "apps": [{"appid": a["appid"], "name": a["name"]} for a in all_apps]
         }
     }
 
-    return structured_data
 
 if __name__ == "__main__":
     data = fetch_full_app_list()
-    if data and data["applist"]["apps"]:
-        with open("steam_app_list.json", "w", encoding="utf-8") as f:
-            json.dump(data, f)
-        print(f"✅ Saved steam_app_list.json ({len(data['applist']['apps'])} games)")
-    else:
-        print("⚠️ No data saved.")
+    if not data or not data["applist"]["apps"]:
+        log.warning("No data saved")
+        sys.exit(1)
+
+    with open("steam_app_list.json", "w", encoding="utf-8") as fh:
+        json.dump(data, fh)
+    log.info("Saved steam_app_list.json (%s games)", len(data["applist"]["apps"]))

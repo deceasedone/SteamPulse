@@ -1,28 +1,51 @@
-# --- Security (Keys) ---
+# --- Security (keys & secrets) ---
+# Blanket-ignore JSON so a stray service-account key can never be committed,
+# then re-allow the config files we do want tracked.
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
 !.eslintrc.json
-!dbt_project.yml
-!profiles.yml
-# --- Logs & Temp Files (FIX FOR YOUR ERROR) ---
+!components.json
+gcp_keys.json
+*-key.json
+*credentials*.json
+.env
+.env.*
+!.env.example
+
+# --- Logs & temp ---
 logs/
 *.log
+full_log.*
 tmp/
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
 venv/
+.venv/
 
 # --- Node / Next.js ---
 node_modules/
 .next/
+out/
 frontend/.next/
 frontend/node_modules/
+*.tsbuildinfo
+.vercel
 
-# --- Local Data ---
+# --- Local data lake ---
 data/
 raw_layer/
 repaired/
 ingest_state.json
 discovered_ids.json
+steam_app_list.json
+steam_data.json
 
-.env
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

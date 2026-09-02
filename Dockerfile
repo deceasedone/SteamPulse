@@ -1,18 +1,27 @@
-# 1. Use a lightweight Python base image (Linux based)
 FROM python:3.12-slim
 
-# 2. Set the folder inside the container where we will work
+# Fail fast and stream logs straight to Cloud Logging.
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
-# 3. Copy our specific requirements (libraries)
+# Dependencies first so code edits do not invalidate the install layer.
 COPY requirements.txt .
-
-# 4. Install the libraries inside the container
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copy your code into the container
-COPY ingest.py .
-COPY transform.py .
+COPY config.py state_store.py ingest.py transform.py ./
 
-# 6. The command to run when the container starts
+# Cloud Run has an ephemeral filesystem, so local batch mirroring is pointless
+# here; state lives in GCS instead (see state_store.py).
+ENV WRITE_LOCAL_BATCHES=false
+
+# Drop root. The job only needs outbound HTTPS and a writable /app.
+RUN useradd --create-home --uid 1001 steampulse \
+    && chown -R steampulse:steampulse /app
+USER steampulse
+
+# Default entrypoint is ingestion; the transform job overrides this with
+#   CMD ["python", "transform.py"]
 CMD ["python", "ingest.py"]

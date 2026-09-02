@@ -1,26 +1,9 @@
-import { runQuery } from '@/lib/bigquery';
-import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { getReleasesPerYear } from '@/lib/queries';
+import { handleRoute } from '../_shared';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600;
 
-export async function GET() {
-  try {
-    const query = `
-      SELECT 
-        EXTRACT(YEAR FROM release_date) as year,
-        COUNT(*) as count
-      FROM \`steampulse-data-eng.dbt_gsinha.stg_games\`
-      WHERE release_date IS NOT NULL 
-        AND release_date > '2010-01-01'
-        AND release_date < CURRENT_DATE()
-      GROUP BY year
-      ORDER BY year ASC
-    `;
-
-    const rows = await runQuery(query);
-    return NextResponse.json(rows);
-  } catch (error) {
-    console.error('Stats API Error:', error);
-    return NextResponse.json([], { status: 500 });
-  }
+export async function GET(req: NextRequest) {
+  return handleRoute(req, getReleasesPerYear, 'stats');
 }

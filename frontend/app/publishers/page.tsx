@@ -1,198 +1,139 @@
-"use client";
-
-import { useEffect, useState } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ScatterChart, Scatter, ZAxis, Legend
-} from 'recharts';
-import { ChartContainer } from '@/components/ChartContainer';
+import { Boxes, Gem, Target } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
+import {
+  PublisherConsistencyChart,
+  PublisherVolumeChart,
+} from '@/components/charts/PublisherCharts';
+import { getPublishers } from '@/lib/queries';
 import type { PublisherStats } from '@/lib/types';
 
-// API Response only has the list now
-interface PublisherData {
-  publishers: PublisherStats[];
+export const revalidate = 3600;
+
+export const metadata = {
+  title: 'Publisher leaderboard',
+  description:
+    'Steam publishers ranked by catalogue size, average rating and quality consistency.',
+};
+
+type Insight = {
+  key: string;
+  title: string;
+  blurb: string;
+  Icon: typeof Target;
+  accent: string;
+  rows: PublisherStats[];
+  metric: (p: PublisherStats) => string;
+  metricLabel: string;
+};
+
+function buildInsights(list: PublisherStats[]): Insight[] {
+  return [
+    {
+      key: 'consistent',
+      title: 'Most consistent',
+      blurb: 'Narrowest rating spread, 5+ rated titles',
+      Icon: Target,
+      accent: 'text-lime',
+      // Consistency is low variance, not a high mean.
+      rows: list
+        .filter((p) => p.rating_stddev !== null && p.rated_games >= 5)
+        .sort((a, b) => (a.rating_stddev ?? 0) - (b.rating_stddev ?? 0))
+        .slice(0, 5),
+      metric: (p) => `σ ${p.rating_stddev}`,
+      metricLabel: 'spread',
+    },
+    {
+      key: 'quality',
+      title: 'Quality over quantity',
+      blurb: 'Highest average rating, 5–49 titles',
+      Icon: Gem,
+      accent: 'text-pulse',
+      rows: list
+        .filter(
+          (p) => p.total_games >= 5 && p.total_games < 50 && p.avg_rating !== null,
+        )
+        .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
+        .slice(0, 5),
+      metric: (p) => String(p.avg_rating ?? '—'),
+      metricLabel: 'avg rating',
+    },
+    {
+      key: 'volume',
+      title: 'Volume champions',
+      blurb: 'Largest catalogues in the dataset',
+      Icon: Boxes,
+      accent: 'text-ink',
+      rows: [...list].sort((a, b) => b.total_games - a.total_games).slice(0, 5),
+      metric: (p) => p.total_games.toLocaleString(),
+      metricLabel: 'games',
+    },
+  ];
 }
 
-// We calculate this locally
-interface InsightState {
-  mostConsistent: PublisherStats[];
-  qualityOverQuantity: PublisherStats[];
-  volumePublishers: PublisherStats[];
-}
-
-export default function PublisherLeaderboard() {
-  const [publishers, setPublishers] = useState<PublisherStats[]>([]);
-  
-  // Initialize insights as empty arrays so the UI doesn't crash
-  const [insights, setInsights] = useState<InsightState>({
-    mostConsistent: [],
-    qualityOverQuantity: [],
-    volumePublishers: []
-  });
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    fetch('/api/publishers')
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        
-        // 1. Save the raw list
-        const rawList: PublisherStats[] = data.publishers || [];
-        setPublishers(rawList);
-
-        // 2. Calculate Insights Locally (No more crashing!)
-        
-        // Volume: Sort by total_games descending
-        const volume = [...rawList]
-          .sort((a, b) => b.total_games - a.total_games)
-          .slice(0, 5);
-
-        // Quality: Filter > 5 games, sort by rating
-        const quality = rawList
-          .filter(p => p.total_games >= 5 && p.total_games < 50)
-          .sort((a, b) => b.avg_rating - a.avg_rating)
-          .slice(0, 5);
-
-        // Consistent: (Proxy logic) High rating + decent volume (>10 games)
-        const consistent = rawList
-          .filter(p => p.total_games >= 10)
-          .sort((a, b) => b.avg_rating - a.avg_rating) // Prioritize rating
-          .slice(0, 5);
-
-        setInsights({
-          volumePublishers: volume,
-          qualityOverQuantity: quality,
-          mostConsistent: consistent
-        });
-
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
-  const top20Publishers = publishers.slice(0, 20) || [];
+export default async function PublisherPage() {
+  const publishers = await getPublishers(100);
+  const insights = buildInsights(publishers);
 
   return (
-    <div className="min-h-screen bg-[#0b1016] text-white p-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-[#66c0f4] to-[#a3cf06] bg-clip-text text-transparent">
-          Publisher Leaderboard
-        </h1>
-        <p className="text-slate-400">Discover the top game publishers on Steam</p>
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        eyebrow="Publishers"
+        title="Publisher"
+        titleAccent="leaderboard"
+        description="Who ships the most, who scores the highest, and who does it most predictably."
+      />
+
+      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <PublisherVolumeChart data={publishers} />
+        <PublisherConsistencyChart data={publishers} />
       </div>
 
-      {/* Main Leaderboard Chart */}
-      <div className="mb-10">
-        <ChartContainer
-          title="Top 20 Publishers by Game Count"
-          subtitle="Publishers with the largest game portfolios"
-          isLoading={loading}
-          error={error}
-          height="h-[600px]"
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={top20Publishers} 
-              layout="vertical" 
-              margin={{ left: 150, right: 30 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-              <XAxis type="number" stroke="#8b9bb4" />
-              <YAxis 
-                dataKey="publisher" 
-                type="category" 
-                stroke="#fff" 
-                width={140}
-                style={{ fontSize: '13px' }}
-              />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
-                itemStyle={{ color: '#fff' }}
-              />
-              <Bar dataKey="total_games" fill="#66c0f4" radius={[0, 8, 8, 0]} name="Total Games" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartContainer>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {insights.map(
+          ({ key, title, blurb, Icon, accent, rows, metric, metricLabel }) => (
+            <section key={key} className="panel p-5">
+              <div className="mb-1 flex items-center gap-2.5">
+                <Icon className={`h-5 w-5 ${accent}`} aria-hidden="true" />
+                <h2 className="text-base font-semibold text-ink">{title}</h2>
+              </div>
+              <p className="mb-4 text-sm text-ink-muted">{blurb}</p>
+
+              {rows.length === 0 ? (
+                <p className="py-8 text-center text-sm text-ink-subtle">
+                  Not enough rated titles to rank
+                </p>
+              ) : (
+                <ol className="space-y-2">
+                  {rows.map((p, i) => (
+                    <li
+                      key={p.publisher}
+                      className="flex items-center gap-3 rounded-lg bg-surface-raised px-3 py-2.5"
+                    >
+                      <span className="w-5 shrink-0 text-sm font-semibold tabular-nums text-ink-subtle">
+                        {i + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">
+                          {p.publisher}
+                        </p>
+                        <p className="text-xs text-ink-subtle">
+                          {p.total_games} games · {p.high_quality_games} rated 75+
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className={`text-sm font-semibold tabular-nums ${accent}`}>
+                          {metric(p)}
+                        </p>
+                        <p className="text-[10px] text-ink-subtle">{metricLabel}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          ),
+        )}
       </div>
-
-      {/* Insights Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Most Consistent Publishers */}
-        <div className="bg-[#1b2838] p-6 rounded-xl border border-slate-700">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">🎯</span>
-            <h3 className="text-lg font-semibold text-[#66c0f4]">Best Rated (Mid-Size)</h3>
-          </div>
-          <p className="text-sm text-slate-400 mb-4">High ratings with 10+ games</p>
-          <div className="space-y-3">
-            {insights.mostConsistent.map((pub, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-[#0b1016] rounded">
-                <div>
-                  <p className="font-medium text-sm truncate max-w-[150px]">{pub.publisher}</p>
-                  <p className="text-xs text-slate-500">{pub.total_games} games</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-[#66c0f4] font-bold">{pub.avg_rating}</p>
-                  <p className="text-xs text-slate-500">rating</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quality Over Quantity */}
-        <div className="bg-[#1b2838] p-6 rounded-xl border border-slate-700">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">💎</span>
-            <h3 className="text-lg font-semibold text-[#a3cf06]">Quality Over Quantity</h3>
-          </div>
-          <p className="text-sm text-slate-400 mb-4">Highest ratings (Small Portfolio)</p>
-          <div className="space-y-3">
-            {insights.qualityOverQuantity.map((pub, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-[#0b1016] rounded">
-                <div>
-                  <p className="font-medium text-sm truncate max-w-[150px]">{pub.publisher}</p>
-                  <p className="text-xs text-slate-500">{pub.total_games} games</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg text-[#a3cf06] font-bold">{pub.avg_rating}</p>
-                  <p className="text-xs text-slate-500">rating</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Volume Publishers */}
-        <div className="bg-[#1b2838] p-6 rounded-xl border border-slate-700">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">📦</span>
-            <h3 className="text-lg font-semibold text-white">Volume Champions</h3>
-          </div>
-          <p className="text-sm text-slate-400 mb-4">Most games published</p>
-          <div className="space-y-3">
-            {insights.volumePublishers.map((pub, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-[#0b1016] rounded">
-                <div>
-                  <p className="font-medium text-sm truncate max-w-[150px]">{pub.publisher}</p>
-                  <p className="text-xs text-slate-500">{pub.avg_rating} avg</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl text-[#66c0f4] font-bold">{pub.total_games}</p>
-                  <p className="text-xs text-slate-500">games</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+    </main>
   );
 }
